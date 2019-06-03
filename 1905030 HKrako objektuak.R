@@ -247,17 +247,17 @@ df.k <- data.frame(itema = emsi.itemak,
 knitr::kable(df.k)
 
 ## Chi karratu adierazgarri emonikoekin kontrasteak
-e.p.w.t <- pairwise.wilcox.test(x = as.numeric(df.itemak.emsi[, 5]), 
+e.p.w.t1 <- pairwise.wilcox.test(x = as.numeric(df.itemak.emsi[, 5]), 
                                 g = df.emsi$Faku, p.adjust.method = "holm")
-knitr::kable(round(e.p.w.t$p.value, 3), caption = paste(emsi.itemak[5], 'itemean alde adierazgarria'))
+knitr::kable(round(e.p.w.t1$p.value, 3), caption = paste(emsi.itemak[5], 'itemean alde adierazgarria'))
 
-e.p.w.t <- pairwise.wilcox.test(x = as.numeric(df.itemak.emsi[, 9]), 
+e.p.w.t2 <- pairwise.wilcox.test(x = as.numeric(df.itemak.emsi[, 9]), 
                                 g = df.emsi$Faku, p.adjust.method = "holm")
-knitr::kable(round(e.p.w.t$p.value, 3), caption = paste(emsi.itemak[9], 'itemean alde adierazgarria'))
+knitr::kable(round(e.p.w.t2$p.value, 3), caption = paste(emsi.itemak[9], 'itemean alde adierazgarria'))
 
-e.p.w.t <- pairwise.wilcox.test(x = as.numeric(df.itemak.emsi[, 14]), 
+e.p.w.t3 <- pairwise.wilcox.test(x = as.numeric(df.itemak.emsi[, 14]), 
                                 g = df.emsi$Faku, p.adjust.method = "holm")
-knitr::kable(round(e.p.w.t$p.value, 3), caption = paste(emsi.itemak[14], 'itemean alde adierazgarria'))
+knitr::kable(round(e.p.w.t3$p.value, 3), caption = paste(emsi.itemak[14], 'itemean alde adierazgarria'))
 
 ## Likert irudiak ---------------------------
 ##   

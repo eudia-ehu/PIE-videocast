@@ -1,0 +1,717 @@
+---
+title: "Ikas-estiloak eta motibazioak hiru fakultatetan"
+author: "Juan Abasolo"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    code_folding: hide    
+    toc: true
+    toc_float:
+      collapsed: false   
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library('kableExtra')
+library('dplyr')
+library('likert')
+require('vcd')
+```
+
+Dokumentu honek ematen ditu galdetegi bitako erantzunen berri zenbait aldagairen arabera. Txostena sortzeko kodea ere barruan du, egokitu edo berriro egin behar balitz.
+
+## Lagina
+
+Galdetegi biak jende bertsuak erantzun baditu ere, lagina ez da ber-bera galdetegi bietan.
+
+```{r Sartu datuak}
+df.chaea <-  read.csv('data/raw/CHAEA/gordinik-CHAEA-zuritutaV2.csv')
+
+# 'ordurako' funtzinoa, denpora-datuak denpora informazinotzat hartzeko
+ordurako <- function(x)strptime(x, format = '%Y/%m/%e %k:%M:%S')
+# funtzino hori erabili
+df.chaea$Marca.temporal <- ordurako(df.chaea$Marca.temporal)
+estiloak <- c('ekintzailea', 'hausnarkorra', 'teorikoa', 'pragmatikoa')
+```
+
+### Laginaren deskribatzaileak
+
+Denera hiru fakultateetako `r length(row.names(df.chaea))` ikaslek bete dut CHAEA galdetegia
+
+```{r}
+par(mfrow = c(2,2))
+barplot(table(df.chaea$Edad), col = 1,
+        main = 'Banaketa adinaren arabera', las = 2)
+barplot(table(df.chaea$Faku), col = 1,
+        main = 'Banaketa fakultatearen arabera')
+barplot(table(df.chaea$Género), col = 1,
+        main = 'Banaketa generoaren arabera')
+barplot(table(df.chaea$Lengua.materna), col = 1,
+        main = 'Banaketa ama hizkuntzaren arabera')
+par(mfrow = c(1,1))
+```
+### Laginaren deskripzinoaren inguruko beste zeozertzuk
+
+Ez dot uste interesaten jakunik holako datuak azaltzea, baina datuak badaukaguzanez, aztertu dagiguzan:
+
+```{r}
+parmarzar <- par('mar')
+par(mfrow = c(1,2),
+    mar=c(12,4,4,4))
+y <- table(df.chaea$Género, df.chaea$Nombre.de.la.titulación)
+barplot(y,    
+        col=1:nrow(y),
+        xlim=c(0, ncol(y) + 3),
+        main = 'Titulazinoar Vs sexua',
+        las = 2, cex.names = 0.8,
+        legend.text=c('E','G'),
+    args.legend=list(
+      x=ncol(y) + 3,
+      y=max(colSums(y)),
+      bty = "n"
+    ))
+y <- table(df.chaea$Curso, df.chaea$Nombre.de.la.titulación)
+barplot(y,    
+        col=1:nrow(y),
+        xlim=c(0, ncol(y) + 3),
+        main = 'Titulazinoa Vs ikasturtea', las = 2, cex.names = 0.8,
+       legend.text=TRUE,
+    args.legend=list(
+      x=ncol(y) + 3,
+      y=max(colSums(y)),
+      bty = "n"))
+par(mfrow = c(1,1),
+    mar = parmarzar)
+
+```
+
+Irudi bietan ikusten danez, oso presentzia gutxi dute karrera batzuk; ganera, lehenengoan ikusten danez laginean bazterrekoak liratekeen karreretan ez dago informatzaile gizonezkorik (fisika, electrónica eta haur hezkuntzan), eta ikasturteari jagokonez, banaketa orekaturik ez dago.
+
+Ikasturtearen eta, akaso, adinaren araberako analisirik ez litzateke egin beharko. Karreraren araberakorik be ez dau emoten egin behar litzatekeenik.
+
+```{r}
+barplot(table(df.chaea$Faku,df.chaea$Curso), col = 1:3,
+        names.arg = paste(levels(factor(df.chaea$Curso)), table(df.chaea$Curso), sep = '. maila. n='),
+        legend.text = levels(df.chaea$Faku),
+        main = 'Fakultade ta ikasturtearen araberako banaketea')
+```
+
+Azken horretako datuotan oinarrituta, emoten dau bideragarria izan litekeala, soilik fakultate bi hartuta, lehenengo mailaren araberako analisiea egitea.
+
+Jakina, azkan hori egingo bagendu ez geunke sartuko Zientzia eta Teknologiako emoitzik sartuko alderaketan, eta letrak/zientziak alderaketa egitea interesgarria izaten da.
+
+Bestalde, ZeTeko 4. mailako datuak sartuko bagenduz, zientzietakoek 4. mailarako garatuta daukezan ikas estrategiak alderatuko geunkez magiseko ikasleak batxilergotik etorri barritan daukezanakin (bazterrekoak dira, eta BHFko HHko 4. mailakoak beste kopuruen aldean).
+
+**Zein interes dogun zer esateko, aztertu behar dogu zeintxuk datu zelan erabili.**
+
+Segidako analisi guztiak datu guztiakin batera eginda dagoz, baina ez litzateke gaitzegia, goiko erizpideak kontuan eukita, beste eraren bateko analisia be egitea.
+
+## CHAEA
+
+```{r eval=T}
+# Datuak antolatu interpretatzeko
+# Erantzunak baloratzeko datuak sartu -----------------------
+neurriak.hartzekoa <- t(read.csv('data/raw/CHAEA/ITEMak_antolau.csv'))
+# neurriak.hartzekoa
+
+# Zenbatu denak --------------------------
+for(i in 1:length(row.names(df.chaea))){
+  # print(i)
+  df.chaea$ACTIVO[i] <- sum(df.chaea[i,7:86]+neurriak.hartzekoa[2,] == 2)
+  df.chaea$REFLEXIVO[i] <- sum(df.chaea[i,7:86]+neurriak.hartzekoa[3,] == 2)
+  df.chaea$TEORICO[i] <- sum(df.chaea[i,7:86]+neurriak.hartzekoa[4,] == 2)
+  df.chaea$PRAGMATICO[i] <- sum(df.chaea[i,7:86]+neurriak.hartzekoa[5,] == 2)
+}
+
+# Identifikau nagusia
+# df.chaea$nagusi <-
+for(i in 1:length(row.names(df.chaea))){
+  # print(i)
+  m <- max(df.chaea[i,89:92])
+  df.chaea$nagusi[i] <- ifelse(m==df.chaea[i,89], 'ACTIVO', 
+                           ifelse(m==df.chaea[1,90], 'REFLEXIVO',
+                                  ifelse(m==df.chaea[1,91], 'TEORICO', 'PRAGMATICO')))
+}
+```
+
+
+Ikasketa estiloen gaineko galdetegiak, 80 itemen balorazioaren bitartez, inkestatuaren ikasestiloen garapenen berri ematen du lautan banatuta:
+
+* Activo, *ekintzailea*
+* Pragmático, *pragmatikoa*
+* Reflexivo, *hausnarkorra*
+* Teorico, *teorikoa*
+
+Banaketa horren oinarri teorikoa Kolb-ek ezarri zuen (1984). Honey eta Mumford (1986) bikoteak *Learning Styles Questionnaire* (LSQ) eraiki zuen eta Alonso, Gallego & Honeyk (1996) gaztelaniazko egokitzapena aurkeztu zuten.
+
+Galdetegiko erantzunak, beraz, dimentsio aniztunak dira. Baliteke erantzunak ematen dituen delako batek hiru dimentsio oso garatuta dituela erakustea eta besteren bat agertzea ez duena bat bera ere ondo garatuta. Jakina, hala izatea baliteke ere, datuek zer erakusten duten ikusi behar da.
+
+Galdetegi hau interpretatzeko orduan, Alonsok-eta proposatzen dute baremo orokor bat, zeinetan balidazio prozesuan lortutako datuen arabera aztertu duten erantzun kopuruaren banaketa eta banaketa horren arabera ikas-estilo bakoitzari neurri bat esleitzen dioten, informatzaileak zer lehenesten duen: *lehenespen oso baxua*, *baxua*, *neurritsua*, *altua* eta *oso altua*.
+
+Segidan, transformazio kualitatiborik gabeko datuen errepresentazio grafikoa
+
+
+```{r eval=T}
+aldagaia <- df.chaea$ACTIVO
+zer <- 'prl'
+
+plot.htad <- function(aldagaia, zer){
+  x <- aldagaia
+  h <- hist(x, breaks=10, 
+            col="azure2", 
+            main= paste('Estilo ', zer),
+            # sub = paste('W = ', round(y$statistic,3), 'p-balioa', round(y$p.value, 3)),
+            ylab = 'Maiztasuna',
+            xlab = 'Erantzun kopurua')
+  xfit<-seq(min(x),max(x),length=40)
+  yfit<-dnorm(xfit,mean=mean(x),sd=sd(x))
+  yfit <- yfit*diff(h$mids[1:2])*length(x)
+  # plot(h)
+  lines(xfit, yfit, col = "darkred", lwd = 2)
+}
+par(mfrow = c(2,2))
+plot.htad(df.chaea$ACTIVO, 'ekintzailea')
+plot.htad(df.chaea$REFLEXIVO, 'hausnarkorra')
+plot.htad(df.chaea$TEORICO, 'teorikoa')
+plot.htad(df.chaea$PRAGMATICO, 'pragmatikoa')
+par(mfrow = c(1,1))
+```
+
+#### Kontuan euki behar doguzanak
+
+Guk batutako erantzunak ez jagokoz banaketa normalari. Ez dakigu, baina, zelakuk ixan zirian Alonsok-eta batutakoak. Eurek egin eben banaketa eta teoriaren arabera, begitantzen jat eurona be ez zala banatuko kurba normalaren arabera.
+
+*Normalize* teknikak erabili geinkez, baina batetik lortzen dana, bestetik galtzen da; normaltasuna neurtzeko test bat erabilita aztertzen da segidan: Kolmogorov-Smirnov-ena. Normaltasuna erakutsi baino, banaketa normala ez dala erakustea dauka helburu testak; beraz, gure interesa da H~0~ ez baztertzea, p-balio altuakin:
+
+```{r eval=T}
+aztertu <- df.chaea$PRAGMATICO
+y1 <- ks.test(aztertu, pnorm, mean(aztertu), sd(aztertu))
+aztertu2 <- rank(aztertu, ties.method = 'random')
+y2 <- ks.test(aztertu2, pnorm, mean(aztertu2), sd(aztertu2))
+
+par(mfrow = c(1,2))
+plot(density(aztertu), 
+     main = "Behartu bakoa",
+     sub = y1$method,
+     xlab = paste('D =', round(y1$statistic, 3), 'p-balioa =', round(y1$p.value, 3)))
+plot(density(aztertu2), 
+     main = 'Behartua',
+     sub = y2$method,
+     xlab = paste('D =', round(y2$statistic, 3), 'p-balioa =', round(y2$p.value, 3)))
+par(mfrow = c(1,1))
+```
+
+Beraz, kasu honetan test batek dinosku banaketa ez dala normala (besteak ez dino hori, baina batek esanda nahikoa dogu baztertzeko).
+Bigarrenaren kasuan, zenbakiz normaltasuna ez baztertzea lortu badogu be, nabarmena da kurtosisean izango lituzkeen arazoak.
+
+
+```{r eval=T}
+# Kurba normalaren kurtosisa:
+x <- rnorm(100)
+e1071::kurtosis(x)
+
+# Behartu gabeko datuena:
+e1071::kurtosis(aztertu)
+
+# Behartutakoena
+e1071::kurtosis(aztertu2)
+
+```
+
+Beraz, zoroarena egin badeikegu be, badakigu normalizatzeak gezurra lekarkeana eta JCR-etatik urrunduko gaituana, estatistikari lupaz begiratu ezkero, behintzat.
+
+### Datuak interpretatzeko baremo orokorra
+
+
+|            | 10%         | 20%   | 40%      | 20%   | 10%        |
+| ---------- | ----------- | ----- | -------- | ----- | ---------- |
+|            | Preferencia |       |          |       |            |
+|            | Muy   Baja  | Baja  | Moderada | Alta  | Muy   alta |
+| Activo     | 0-6         | 7-8   | 9-12     | 13-14 | 15-20      |
+| Reflexivo  | 0-10        | 11-13 | 14-17    | 18-19 | 20         |
+| Teórico    | 0-6         | 7-9   | 10-13    | 14-15 | 16-20      |
+| Pragmático | 0-8         | 9-10  | 11-13    | 14-15 | 16-20      |
+
+orr. 114
+
+```{r eval=T}
+# Activo
+activo.q <- vector()
+activo.q[df.chaea$ACTIVO < 7] <- 1
+activo.q[df.chaea$ACTIVO >= 7 & df.chaea$ACTIVO < 9] <- 2
+activo.q[df.chaea$ACTIVO >= 9 & df.chaea$ACTIVO < 13] <- 3
+activo.q[df.chaea$ACTIVO >= 13 & df.chaea$ACTIVO < 15] <- 4
+activo.q[df.chaea$ACTIVO >= 15] <- 5
+df.chaea$activo.q <- as.factor(activo.q)
+
+levels(df.chaea$activo.q) <- c("Muy baja", "Baja", "Moderada", "Alta", "Muy alta")
+
+# Reflexivo
+reflexivo.q <- vector()
+reflexivo.q[df.chaea$REFLEXIVO < 11] <- 1
+reflexivo.q[df.chaea$REFLEXIVO >= 11 & df.chaea$REFLEXIVO < 14] <- 2
+reflexivo.q[df.chaea$REFLEXIVO >= 14 & df.chaea$REFLEXIVO < 18] <- 3
+reflexivo.q[df.chaea$REFLEXIVO >= 18 & df.chaea$REFLEXIVO < 20] <- 4
+reflexivo.q[df.chaea$REFLEXIVO >= 20] <- 5
+df.chaea$reflexivo.q <- as.factor(reflexivo.q)
+
+levels(df.chaea$reflexivo.q) <- c("Muy baja", "Baja", "Moderada", "Alta", "Muy alta")
+
+# Téorico
+teorico.q <- vector()
+teorico.q[df.chaea$TEORICO < 7] <- 1
+teorico.q[df.chaea$TEORICO >= 7 & df.chaea$TEORICO < 10] <- 2
+teorico.q[df.chaea$TEORICO >= 10 & df.chaea$TEORICO < 14] <- 3
+teorico.q[df.chaea$TEORICO >= 14 & df.chaea$TEORICO < 16] <- 4
+teorico.q[df.chaea$TEORICO >= 16] <- 5
+df.chaea$teorico.q <- as.factor(teorico.q)
+
+levels(df.chaea$teorico.q) <- c("Muy baja", "Baja", "Moderada", "Alta", "Muy alta")
+
+# Pragmático
+pragmatico.q <- vector()
+pragmatico.q[df.chaea$PRAGMATICO < 9] <- 1
+pragmatico.q[df.chaea$PRAGMATICO >= 9 & df.chaea$PRAGMATICO < 11] <- 2
+pragmatico.q[df.chaea$PRAGMATICO >= 11 & df.chaea$PRAGMATICO < 14] <- 3
+pragmatico.q[df.chaea$PRAGMATICO >= 14 & df.chaea$PRAGMATICO < 16] <- 4
+pragmatico.q[df.chaea$PRAGMATICO >= 16] <- 5
+df.chaea$pragmatico.q <- as.factor(pragmatico.q)
+
+levels(df.chaea$pragmatico.q) <- c("Muy baja", "Baja", "Moderada", "Alta", "Muy alta")
+```
+
+Horren banaketa honela geratzen da, beraz:
+
+```{r eval=T}
+knitr::kable(data.frame(rbind(table(df.chaea$activo.q),
+                   table(df.chaea$reflexivo.q),
+                   table(df.chaea$teorico.q),
+                   table(df.chaea$pragmatico.q)
+                   ), row.names = estiloak), row.names = T)
+```
+
+### Ikas-estiloen garapenaren batez bestekoa
+
+Goragoko... 
+
+
+Helburu izan diren 3 fakultateetako ikasleengan ikus dezakegu antzekoa baina desberdinak diren ikas-estiloen garapenak.
+
+Lehenengo begirada batean, ikus dezakegu hiru fakultateetako ikasleen artean badirela.............
+
+```{r eval=T}
+### Ahalegina bost neurritan (ta ez 20 item)
+
+df.chaea$activo.qn <- as.numeric(df.chaea$activo.q)
+df.chaea$reflexivo.qn <- as.numeric(df.chaea$reflexivo.q)
+df.chaea$teorico.qn <- as.numeric(df.chaea$teorico.q)
+df.chaea$pragmatico.qn <- as.numeric(df.chaea$pragmatico.q)
+
+starrerako <- aggregate(x = df.chaea[, c("activo.qn","reflexivo.qn", "teorico.qn", "pragmatico.qn")], 
+                        by = list(df.chaea$Faku), 
+                        FUN = mean)
+rownames(starrerako) <- starrerako[,1]
+
+starrerako <- rbind(rep(5,4) , rep(0,4) , starrerako[, 2:length(names(starrerako))])
+
+# fmsb::radarchart(starrerako)
+
+colors_border=c( rgb(0.2,0.5,0.5,0.9), rgb(0.8,0.2,0.5,0.9) , rgb(0.7,0.5,0.1,0.9) )
+colors_in=c( rgb(0.2,0.5,0.5,0.4), rgb(0.8,0.2,0.5,0.4) , rgb(0.7,0.5,0.1,0.4) )
+fmsb::radarchart( starrerako, axistype=1 , 
+                  #custom polygon
+                  pcol=colors_border , 
+                  pfcol=colors_in , 
+                  plwd=4 , 
+                  plty=1,
+                  #custom the grid
+                  cglcol="grey", cglty=1, 
+                  axislabcol="gray40", 
+                  caxislabels=levels(df.chaea$activo.q), 
+                  calcex = 0.7,
+                  cglwd=0.8,
+                  #custom labels
+                  vlcex=0.9,
+                  vlabels = c("Ekintzailea","Hausnarkorra","Teorikoa", "Pragmatikoa"),
+                  # Izenburua
+                  title = 'Ikas-estiloak fakultadeen arabera (bataz bestekoa)'
+)
+
+legend(x = 1, y = 1, 
+       legend = paste(rownames(starrerako[-c(1,2),]), table(df.chaea$Faku), sep = '\t n=' ), 
+       bty = "n", 
+       pch=20 , 
+       col=colors_in, 
+       text.col = "black",
+       cex=1, 
+       pt.cex=2)
+```
+
+Aurreko irudiak erakusten du fakultate guztietako ikasle gehienek ikas estilo guztietan erabilera maila altuak erakusten dituztela; hala ere, fakultateen arteko aldea ere antzematen da:
+
+* BHFko ikasleriak estilo teorikoan eman ditu emaitzik gorenak, beste fakultatetakoen aldean.
+* GKZko ikasleek estilo ekintzailean eta pragmatikoan eman dute erantzun positibo gehien.
+* zeTko ikasleen erantzunetan aurkitu dira, berriz, estilo hausnarkorreko erantzun gehien.
+
+#### Guk kontuan izatekoa:
+
+Hemen be beste gauza bat gabiltzaz behartuten. Batez bestekoak egiten doguz aldagai kualitatibo ordinalakin. Hau da:
+
+* Zenbatu doguz bakotxaren erantzunak estilo bakotxaren arabera.
+* Bakotxak estilo bakotxean zein *garapen* maila daukan kalkulau dog (Alonsoren-ta arabera)
+* Garapen maila horreei zenbaki bat emon deutsague (muy baja =1, baja=2... muy alta = 5)
+* Zenbaki (ordinal) horren bataz bestekoa atara dogu.
+* Hori erakusten dogu taldearen ezaugarritzat.
+
+Pentsau lei, datuak ordinalak direanez, media/erdiko balioa erabili behar geunkela. Baina horreek arazo bi daukoz:
+
+1. Ez da alderik ikusten guk erakutsi nahi doguzan elementuen artean (fakultadeak)
+2. 100etik goragoko datuakin gabiltzanez, matematikari batzuk onargarri jotzen dabe datu ez parametrikoak parametrikotzat jotzea. Baina hor letra behar dot, leidu-eta, eta ez dakit non.
+
+
+
+
+```{r eval=F}
+starrerako <- aggregate(x = df.chaea[, c("activo.qn","reflexivo.qn", "teorico.qn", "pragmatico.qn")], 
+                        by = list(df.chaea$Faku), 
+                        FUN = median)
+rownames(starrerako) <- starrerako[,1]
+
+starrerako <- rbind(rep(5,4) , rep(0,4) , starrerako[, 2:length(names(starrerako))])
+
+# fmsb::radarchart(starrerako)
+
+colors_border=c( rgb(0.2,0.5,0.5,0.9), rgb(0.8,0.2,0.5,0.9) , rgb(0.7,0.5,0.1,0.9) )
+colors_in=c( rgb(0.2,0.5,0.5,0.4), rgb(0.8,0.2,0.5,0.4) , rgb(0.7,0.5,0.1,0.4) )
+fmsb::radarchart( starrerako, axistype=1 , 
+                  #custom polygon
+                  pcol=colors_border ,
+                  pfcol=colors_in ,
+                  plwd=4 ,
+                  plty=1,
+                  #custom the grid
+                  cglcol="grey", cglty=1,
+                  axislabcol="gray40",
+                  caxislabels=levels(df.chaea$activo.q),
+                  calcex = 0.7,
+                  cglwd=0.8,
+                  custom labels
+                  vlcex=0.9,
+                  vlabels = c("Ekintzailea","Hausnarkorra","Teorikoa", "Pragmatikoa"),
+                  # Izenburua
+                  title = 'Ikas-estiloak fakultadeen arabera (mediana)'
+)
+
+# legend(x = 1, y = 1, 
+#        legend = paste(rownames(starrerako[-c(1,2),]), table(df.chaea$Faku), sep = ' n=' ), 
+#        bty = "n", 
+#        pch=20 , 
+#        col=colors_in, 
+#        text.col = "black",
+#        cex=1.2, 
+#        pt.cex=3)
+```
+
+Goiko irudian ZeTekoek ez dabe erakusten garapen handiagorik maila baten be, estilo hausnarkorrean hiru fakultadeak bardin ageri dira eta ZeTekoek garapen orokor baxuagoa daukela emoten da aditzera. Argentinako aurreritziakin^[Numeruetakuk ez dabela mundu aitzen] bat datorrena, ganera.
+Gure magiseko ikasleek, ganera, emoten dau direala ikas estiloak garatuen daukezanak, bakar bakarrik puntu erdi baxuo geratzen direalako estilo pragmatikuan bardinduta ekintzaile eta hausnarkorrean eta estilo teorikoan *winner*.
+
+### Estilo nagusiak
+
+Beste ikuskera baten azterketa ere baimentzen du CHAEA galdetegiak, gailentzen diren ikasestiloena. 
+Badakigu, beraz, ikasle gehienek ikas-estilo guztiak neurri ertainean garatuta dituztela. Hala eta guztiz ere, ikasleek estilo batzuk garatuago dituzte beste batzuk baino. 
+Horrela, azter ditzakegu fakultate bakoitzean zein estilo gailentzen diren.
+
+```{r eval=F}
+x <- subset(df.chaea, Faku=='ZeT')
+
+# table(x$activo.q, x$teorico.q)
+# round(prop.table(table(x$reflexivo.q, x$pragmatico.q))*100, 3)
+
+x <- aggregate(x = df.chaea[, c("activo.qn","reflexivo.qn", "teorico.qn", "pragmatico.qn")],
+                        by = list(df.chaea$Faku),
+                        FUN = mean)
+row.names(x) <- x$Group.1
+x <- x[ , 2: length(names(x))]
+x <- round(x,2)
+
+x %>%
+  mutate(
+    x = row.names(.),
+    activo.qn = cell_spec(activo.qn, color = ifelse(activo.qn == max(activo.qn), "red", "black")),
+    reflexivo.qn = cell_spec(reflexivo.qn, color = ifelse(reflexivo.qn == max(reflexivo.qn), "red", "black")),
+    teorico.qn = cell_spec(teorico.qn, color = ifelse(teorico.qn == max(teorico.qn), "red", "black")),
+    pragmatico.qn = cell_spec(pragmatico.qn, color = ifelse(pragmatico.qn == max(pragmatico.qn), "red", "black"))
+    ) %>%
+
+  select(x, activo.qn, reflexivo.qn, teorico.qn, pragmatico.qn) %>%
+  kable(escape = F, col.names = c('Fakultatea', estiloak), caption = 'Ikasestiloak hiru fakultateetan') %>%
+  kable_styling("striped", full_width = F) %>%
+  footnote(general = "Gorriak gorengo balioa nabarmentzen du ikas-estiloan. ")
+
+```
+
+#### Banaketaren ikuskera grafikoa
+
+```{r eval=F}
+# Analisi grafikoa eta distribuzioa egiteko funtzioa
+f.barIE <-function(aldagaia1, aldagaia2, zer1='zozer', zer2='zozetaka'){
+  y <- table(aldagaia1, aldagaia2)
+  yt <- suppressWarnings(chisq.test(y))
+  barplot(y,
+          beside = T,
+          col=RColorBrewer::brewer.pal(n = nrow(y), name = "RdBu"),
+          # biderketak gehitu behar jakoz beside=T emon deutsatelako
+          xlim=c(0, ncol(y)*nrow(y) + 3*nrow(y)),
+          main = paste('IE', zer1, zer2),
+          sub = paste('chi^2',
+                      '=',
+                      round(yt$statistic,3),
+                      'p-balioa =',
+                      round(yt$p.value,3)),
+          las = 1,
+          cex.names = 0.8,
+          legend.text=T,
+          args.legend=list(
+            x=ncol(y)*nrow(y) + 3*nrow(y),
+            y=max(y),
+            bty = "n"
+          )
+  )
+
+  vcd::mosaic(vcd::structable(y), shade=TRUE, legend=TRUE)
+}
+
+```
+
+
+```{r eval=F}
+f.barIE(df.chaea$Faku, df.chaea$activo.q, 'ekintzailea', 'fakultateka')
+```
+
+Lehenengo irudiko banaketa ez da ausazkoa, $\chi^2$ aren banaketak erakusten digunez. Bigarren irudiak zehazten digu estilo ekintzailea GKZ fakultatean maizago erabiltzen dutela bertako ikasleek.
+Banaketaren beste ezaugarri guztiak, berriz, ausazkotzat har litezkeela ere esaten digu bigarren irudiak.
+
+```{r eval=F}
+
+f.barIE(df.chaea$Faku, df.chaea$reflexivo.q, 'hausnarkorra', 'fakultateka')
+```
+
+Kasu honetan ere, aurreko emaitzekin bat datorren ondorioa ikusten da; GKZ fakultateko ikasleen artean joera hausnarkorra erakusten duten ikas-estrategia oso gutxi darabiltzatela, alegia.
+
+```{r eval=F}
+f.barIE(df.chaea$Faku, df.chaea$teorico.q, 'teorikoa', 'fakultateka')
+```
+
+Ikas-estrategia teorikoak ere BKZ fakultatean gutxi ikusten dira, maila aipagarri baina ez adierazgarrian %95eko adierazgarritasun mailan.
+
+```{r eval=F}
+f.barIE(df.chaea$Faku, df.chaea$pragmatico.q, 'ekintzailea', 'fakultateka')
+```
+
+Azken irudi honek ez digu erakusten banaketa adierazgarririk... NAHIZ ETA $\chi^2$aren emaitzak hori adierazi.
+
+**Aztertzeko**
+
+## EMSI
+
+Asko aurreratzeko oindio
+
+* Laburpena dago
+* Ez dot egin proba estatistikorik  
+  Begitu zuk, mesedez:
+  * Ingelesezko artikuluan ia motibazino eren araberako batuketarik edo egiten dan; ez esateko *lau itemetatik bitan hau eta baten bestea...*
+  * Era honetako konparazinoietan erabilten dan ala ez Kruskal-Wallisen aproba. Datuai ondo jagoke, baina ez dakit pedagogian ohiturrarik dagoan. $\chi^2$-k ez dauko kontuan eskala ordinala dala eta ez geunke jarraikakotzat hartu behar. U Mann-Withney-Wilcoxon aprobak ez dosku balio, dikotomikuakin egiten dabelako, ta guk hiru fakultade daukoguz
+  
+
+```{r}
+df.emsi <- read.csv('data/raw/EMSI/gordinik-EMSI-zurituta.csv')
+
+# str(df.emsi)
+
+mintrinseca <- c(1, 5, 9, 13)
+mregulacionidentificada <- c(2, 6, 10, 14)
+mregulacionexterna <- c(3, 7, 11, 15)
+mamotivacion <- c(4, 8, 12, 16)
+
+# Aldagaien izenak egokitu (read.csv-k izen arraroak eragiten ditualako)
+df.itemak.emsi <- df.emsi[, 7:22]
+emsi.itemak <- read.csv('data/raw/EMSI/gordinik-EMSI-zurituta.csv', header = F, stringsAsFactors = F)[1,7:22]
+emsi.itemak <- as.matrix(emsi.itemak)
+emsi.itemak <-  as.character(emsi.itemak[1,])
+names(df.itemak.emsi) <- emsi.itemak
+
+# Likert objektuak sortu
+
+# Gutztiak
+lik.emsi <- likert::likert(df.itemak.emsi)
+lik.emsi.faku <- likert::likert(df.itemak.emsi, grouping = df.emsi$Faku)
+```
+
+
+#### Homozedastizitatea: aldeetako adierazgarritasunaz zer ikus daitekeen
+
+Bariantzen homogeneotasuna aztertzeko
+
+
+```{r}
+e.l <- c()
+levene.pbalioak <- c()
+for (i in 1:length(names(df.itemak.emsi))){
+  e.l <- car::leveneTest(as.numeric(df.itemak.emsi[,i])~df.emsi$Faku, center = 'median')
+  levene.pbalioak[i] <- round(e.l$`Pr(>F)`[1], 3)
+}
+
+knitr::kable(data.frame(itemak = emsi.itemak, 
+           p.balioak = levene.pbalioak, 
+           ebidentziarik = ifelse(levene.pbalioak < 0.05, '\  \ bai', '\ \ ez')), 
+           row.names = F,
+           col.names = c('Itemak', 'p-balioa', ' ?'))
+```
+Beraz, Leveneren testak erakusten digunez, homogeneotasunik ez dagoela esateko ebidentziarik ez dugu. Horrek baimentzen digu itemen analisirako Kruskal-Wallisen testa erabiltzea, alde adierazgarriak aurkitu nahirik.
+
+Kruskal-Wallisen testak $\chi^2$a kalkulatzen du aldagai ordinalekin, hau da, hurrenkeraren garrantzia ere kontuan du, banaketan alde adierazgarririk dagoenentz esateko orduan.
+
+```{r}
+e.k.ch <- c()
+e.k.pb <- c()
+for (i in 1:length(names(df.itemak.emsi))){
+  e.k <- kruskal.test(df.itemak.emsi[,i]~df.emsi$Faku)
+  e.k.ch[i] <- e.k$statistic
+  e.k.pb[i] <- e.k$p.value
+}
+
+df.k <- data.frame(itema = emsi.itemak,
+           "$\\chi^2$" = round(e.k.ch, 3),
+           'p-balioa' = round(e.k.pb, 3),
+           ' ' = ifelse(e.k.pb > 0.05, '',
+                                   ifelse(e.k.pb > 0.01, '*',
+                                          ifelse(e.k.pb > 0.001, '**', '***'
+                                          ))))
+
+knitr::kable(df.k, col.names = c('Itema', '$\\chi^2$', 'p-balioa', ''))
+```
+
+Ikusten denez, 5., 9. eta 10. itemetan erantzunak desberdinak direla esan dezakegu %99 segurtasunez. Beste kasu guztietan aldea ikusten bada ere, ausazkoa ez denik izan ezin baieztatu dezakegu %95eko konfiantza maila erabilita.
+
+EMSI galdetegiak motibazioaren inguruko lau dimentsio neurtzen ditu; aldea euretariko bitan aurkitu da: *Motivación intrínseca* eta *regulación identificada*n.
+
+```{r}
+e.p.w.t <- suppressWarnings(pairwise.wilcox.test(x = as.numeric(df.itemak.emsi[, 5]), 
+                                g = df.emsi$Faku, p.adjust.method = "holm"))
+knitr::kable(round(e.p.w.t$p.value, 3), caption = paste(emsi.itemak[5], 'itemean aldearen p.balioa'))
+```
+
+Beraz, alde adierazgarria aurkitu dugu soilik ZeT eta GKZ fakultateen artean
+
+```{r}
+
+e.p.w.t <- suppressWarnings(pairwise.wilcox.test(x = as.numeric(df.itemak.emsi[, 9]), 
+                                g = df.emsi$Faku, p.adjust.method = "holm"))
+knitr::kable(round(e.p.w.t$p.value, 3), caption = paste(emsi.itemak[9], 'itemean aldearen p.balioa'))
+
+```
+
+Item honetan alde adierazgarria aurkitu da GKZ eta beste bien artean.
+
+```{r}
+e.p.w.t <- suppressWarnings(pairwise.wilcox.test(x = as.numeric(df.itemak.emsi[, 14]), 
+                                g = df.emsi$Faku, p.adjust.method = "holm"))
+knitr::kable(round(e.p.w.t$p.value, 3), caption = paste(emsi.itemak[14], 'itemean aldearen p.balioa'))
+```
+
+Azkenik, 14. itemean alde adierazgarria ZeT eta BHF fakultateko ikasleen artean aurkitu da.
+
+### Motivación intrinseca 
+
+```{r}
+# Motivación intrinseca ===================
+lik.emsi.mintrinseca <- likert::likert(df.itemak.emsi[, mintrinseca])
+# summary(lik.emsi.mintrinseca)
+# str(lik.emsi.mintrinseca)
+plot(lik.emsi.mintrinseca)
+# Fakultadeka
+lik.emsi.mintrinseca.faku <- likert::likert(df.itemak.emsi[, mintrinseca], grouping = df.emsi$Faku)
+# summary(lik.emsi.mintrinseca.faku)
+# str(lik.emsi.mintrinseca.faku)
+plot(lik.emsi.mintrinseca.faku)
+plot(lik.emsi.mintrinseca.faku, type = 'density')
+```
+
+
+### Regulacion identificada 
+
+```{r}
+# Regulacion identificada ==================
+lik.emsi.mregulacionidentificada <- likert::likert(df.itemak.emsi[, mregulacionidentificada])
+# summary(lik.emsi.mregulacionidentificada)
+# str(lik.emsi.mregulacionidentificada)
+plot(lik.emsi.mregulacionidentificada)
+# Fakultadeka
+lik.emsi.mregulacionidentificada.faku <- likert::likert(df.itemak.emsi[, mregulacionidentificada], grouping = df.emsi$Faku)
+# summary(lik.emsi.mregulacionidentificada.faku)
+# str(lik.emsi.mregulacionidentificada.faku)
+plot(lik.emsi.mregulacionidentificada.faku)
+
+```
+
+
+```{r}
+plot(lik.emsi.mregulacionidentificada.faku, type = 'density')
+```
+
+### Regulación externa
+
+```{r}
+# Regulación externa =======================
+lik.emsi.mregulacionexterna <- likert::likert(df.itemak.emsi[, mregulacionexterna])
+# summary(lik.emsi.mregulacionexterna)
+# str(lik.emsi.mregulacionexterna)
+plot(lik.emsi.mregulacionexterna)
+# Fakultadeka
+lik.emsi.mregulacionexterna.faku <- likert::likert(df.itemak.emsi[, mregulacionexterna], grouping = df.emsi$Faku)
+# summary(lik.emsi.mregulacionexterna.faku)
+# str(lik.emsi.mregulacionexterna.faku)
+plot(lik.emsi.mregulacionexterna.faku)
+```
+
+#### Palta ixan dana
+
+```{r}
+plot(lik.emsi.mregulacionexterna.faku, type = 'density')
+```
+
+
+
+### Amotibazioa 
+
+```{r}
+# Amotibazioa ===============================
+lik.emsi.mamotivacion <- likert::likert(df.itemak.emsi[, mamotivacion])
+# summary(lik.emsi.mamotivacion)
+# str(lik.emsi.mamotivacion)
+plot(lik.emsi.mamotivacion)
+
+# Fakultadeka
+lik.emsi.mamotivacion.faku <- likert::likert(df.itemak.emsi[, mamotivacion], grouping = df.emsi$Faku)
+# summary(lik.emsi.mamotivacion.faku)
+# str(lik.emsi.mamotivacion.faku)
+plot(lik.emsi.mamotivacion.faku)
+plot(lik.emsi.mamotivacion.faku, type = "density")
+```
+
+
+## Gehitxuago esan liteke bide honetatik...
+
+Efektuaren tamaina (aldia handia, txikia ala ertaina dan, zeozelan azalduta).
+
+Hori egin behar izatera hurrengo horreei segidu bihar neukioe, baina ez bada behar, hoba. Denporaz estu nabil-eta ;-)
+
+Alde esanguratsua aurkituta, efektuaren tamaina (ES) ere neurtu behar da. Horretarako `coin` paketeko `wilcox_test` erabili behar da *Z* balioa atarateko. Gero:
+`tamanyo_efecto <- 1.845/sqrt(n1 + n2)`
+`tamanyo_efecto`.
+
+Neurriak:
+
+* `0.1 =` txikia
+* `0.3 =` ertaina
+* `> 0.5` handia

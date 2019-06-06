@@ -429,7 +429,7 @@ class: center, bottom, inverse, split-three with-border white
   
   Versión española de la SIMS para evaluar la motivación situacional en educación
   
-  **Martin-Albo, Nuñez, Navarro (2009)**
+  **Martín-Albo, Núñez, Navarro (2009)**
 
   ]]
 .column.bg-green[.content[
@@ -487,7 +487,7 @@ Motivación Intrínseca
 
 Regulación Identificada
 
-Regulación Eterna
+Regulación Externa
 
 Amotivación
 
@@ -517,7 +517,7 @@ Motivación Intrínseca
 
 Regulación Identificada
 
-Regulación Eterna
+Regulación Externa
 
 Amotivación
 
@@ -580,7 +580,7 @@ class: center, bottom, inverse, split-33 with-border white
 
 .black[
 ```{r echo=FALSE}
-knitr::kable(round(e.p.w.t3$p.value, 3), caption = paste(emsi.itemak[14], 'Test de Wilcoxon'), format = 'html')
+knitr::kable(round(e.p.w.t3$p.value, 3), caption = paste(emsi.itemak[14], ''), format = 'html')
 ```
 ]
 ]]
